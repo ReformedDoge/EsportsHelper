@@ -19,9 +19,38 @@ from EsportsHelper.Config import config
 from EsportsHelper.Logger import log
 from EsportsHelper.I18n import i18n
 from EsportsHelper.Stats import stats
+#remove later
+import json
 
 _ = i18n.getText
 _log = i18n.getLog
+#self.latestProcessedDropTime = 1723204948000  # Initialize with current time
+class DropTracker:
+    def __init__(self):
+        log.info("New DropTracker instance initialized")
+
+        self.latestProcessedDropTime = int(datetime.now().timestamp() * 1e3)
+
+    def trackerCheckNewDrops(self, currentDropsList):
+        log.info("trackerCheckNewDrops Function Called")
+
+        # Sort drops by unlockedDateMillis in descending order
+        sorted_drops = sorted(currentDropsList, key=lambda drop: drop.get("unlockedDateMillis", 0), reverse=True)
+        newDropList = []
+        
+        for drop in sorted_drops:
+            unlockedDateMillis = drop.get("unlockedDateMillis", -1)
+            # Only add drops that are newer than the initial latestProcessedDropTime
+            if unlockedDateMillis > self.latestProcessedDropTime:
+                log.info(f" unlockedDateMillis: {unlockedDateMillis}")
+                log.info(f" self.latestProcessedDropTime: {self.latestProcessedDropTime}")
+                newDropList.append(drop)
+
+        # Update latestProcessedDropTime if there are new drops
+        if newDropList:
+            self.latestProcessedDropTime = newDropList[0].get("unlockedDateMillis", self.latestProcessedDropTime)
+        log.info(f"Updated: self.latestProcessedDropTime: {self.latestProcessedDropTime}")
+        return newDropList
 
 
 class Rewards:
@@ -32,6 +61,8 @@ class Rewards:
         self.today = datetime.now().day
         self.networkHandler = NetworkHandler(driver=driver)
         self.wait = WebDriverWait(self.driver, 30)
+        self.drop_tracker = DropTracker()
+
 
     def checkRewardsFlag(self, stream: str):
         """
@@ -532,6 +563,7 @@ class Rewards:
             log.error(formatExc(format_exc()))
 
     def checkNewDrops(self):
+        #log.info("checkNewDrops called")
         """
         Check for new drops since the last check. If new drops are found, update relevant information and perform actions.
 
@@ -541,11 +573,11 @@ class Rewards:
             with open(f'./dropsHistory/{strftime("%Y%m%d-")}drops.txt', "a+"):
                 pass
             stats.todayDrops = 0
-        newDropList = [drop for drop in stats.currentDropsList if (stats.lastDropCheckTime - 6000) <= drop.get("unlockedDateMillis", -1)]
+        newDropList = self.drop_tracker.trackerCheckNewDrops(stats.currentDropsList)
         # newDropList = [drop for drop in stats.currentDropsList if drop.get("cappedDrop", False)]
-        if len(newDropList) > 0:
+        if newDropList:
             newDrops = parseDropList(newDropList)
-
+            #log.info(f"Logging newDropList array: {json.dumps(newDropList, indent=2)}")
             for drop in newDrops:
                 cappedInfo = " "
                 if str(drop.numberOfFansUnlocked) != "0" and drop.capped:
@@ -577,4 +609,3 @@ class Rewards:
                         log.error(formatExc(format_exc()))
         else:
             pass
-        stats.lastDropCheckTime = int(datetime.now().timestamp() * 1e3)
