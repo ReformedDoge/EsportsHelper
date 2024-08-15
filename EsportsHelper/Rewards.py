@@ -40,11 +40,13 @@ class DropTracker:
         
         for drop in sorted_drops:
             unlockedDateMillis = drop.get("unlockedDateMillis", -1)
+            # Early exit if we encounter a drop older than the latest processed drop time
+            if unlockedDateMillis <= self.latestProcessedDropTime:
+                break
             # Only add drops that are newer than the initial latestProcessedDropTime
-            if unlockedDateMillis > self.latestProcessedDropTime:
-                log.info(f" unlockedDateMillis: {unlockedDateMillis}")
-                log.info(f" self.latestProcessedDropTime: {self.latestProcessedDropTime}")
-                newDropList.append(drop)
+            log.info(f"unlockedDateMillis: {unlockedDateMillis}")
+            log.info(f"self.latestProcessedDropTime: {self.latestProcessedDropTime}")
+            newDropList.append(drop)
 
         # Update latestProcessedDropTime if there are new drops
         if newDropList:
